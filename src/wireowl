@@ -1,0 +1,156 @@
+#!/usr/bin/env bash
+
+# `wireowl` shows statistics and visualisation of network activity in interactive
+# terminal app, either live from network interface or from saved capture.
+#
+# This script runs `tshark` in background with stdout redirected to a pipe,
+# and then starts python code which reads that pipe.
+#
+# If you can't run tshark as a regular user, add yourself into
+# wireshark group `sudo usermod -aG wireshark $USER` and logout/login.
+#
+# This file is part of wireowl which is released under GNU GPLv2 license.
+#
+# Copyright 2021, 2022 Jiri Rozvaril <rozvara at vync dot org>
+
+PROGNAME="$(basename $0)"
+
+usage() {
+    echo "Captures network traffic or reads packets from a saved capture using tshark"
+    echo "and shows communications and statistics per device in an interactive terminal UI."
+    echo
+    echo "Usage: $PROGNAME [OPTION...] [SOURCE]"
+    echo
+    echo "Source:"
+    echo "  -i, --interface IFACE  Run capture on network interface specified"
+    echo "  -r, --read-file FNAME  Read network traffic from pcap/pcapng file"
+    echo
+    echo "Options:"
+    echo "  -h, --help             Show this help and exit"
+    echo "  -p, --preserve         Preserve .csv file for further use (in /tmp folder)"
+    echo "  -s, --speed NUM        Speed of file replay (e.g. 10 for 10x faster)"
+    echo
+    echo "If no source is specified, see tshark(1) how interface is chosen."
+}
+
+error_one_or_other() {
+    echo "Error: Cannot read both from interface and file." >&2
+    exit_with_usage
+}
+
+exit_with_usage() {
+    echo "For usage run: $PROGNAME -h"
+    exit 1
+}
+
+error() {
+    echo "Error: $*" >&2
+    exit 1
+}
+
+is_number() {
+    [[ $1 =~ ^([0-9]*)$ ]]
+}
+
+is_interface() {
+    [[ -z "$1" ]] && return 1
+    [[ -d "/sys/class/net/${1}" ]]
+}
+
+is_file() {
+   [[ -f "$1" ]]
+}
+
+IFACE=
+FNAME=
+SPEED=
+KEEP=
+
+GETOPT_ARGS=$(getopt -o "hi:r:ps:" -l "help,interface:,read-file:,preserve,speed:" -n "$PROGNAME" -- "$@")
+[[ $? -ne 0 ]] && exit_with_usage
+eval set -- "$GETOPT_ARGS"
+while :; do
+    case "$1" in
+        -h|--help)
+            usage
+            exit 0
+            ;;
+        -i|--interface)
+            shift
+            IFACE="$1"
+            is_interface "$IFACE" || error "$IFACE is not a network interface."
+            [[ $FNAME ]] && error_one_or_other
+            shift
+            ;;
+        -r|--read-file)
+            shift
+            FNAME="$1"
+            is_file "$FNAME" || error "File $FNAME does not exist."
+            [[ $IFACE ]] && error_one_or_other
+            shift
+            ;;
+         -p|--preserve)
+            KEEP=0
+            shift
+            ;;
+         -s|--speed)
+            shift
+            SPEED="$1"
+            is_number "$SPEED" || error "$SPEED is not a positive number."
+            shift
+            ;;
+        --)
+            shift
+            break
+            ;;
+    esac
+done
+
+for bin in tshark python3 mkfifo; do
+   [[ $(which "$bin") ]] || error "$bin needed. Please install it first."
+done
+
+which geoiplookup > /dev/null || echo "geoiplookup not found, IPv4 geolocation will not work."
+which geoiplookup6 > /dev/null || echo "geoiplookup6 not found, IPv6 geolocation will not work."
+
+# path for regular installation (or current dir for developer)
+APP_PATH="/usr/local/share/org.vync/"
+is_file "wireowl.py" && APP_PATH=
+
+for file in wireowl.py wireowl_tui.py wireowl_backend.py wireowl_common.py fields.conf; do
+   is_file "${APP_PATH}${file}" || error "Missing ${APP_PATH}${file} file. Please re-install."
+done
+
+PIPE="/tmp/tshark2wireowl.$$.pipe"
+rm "$PIPE" 2> /dev/null
+mkfifo "$PIPE"
+
+if [[ $SPEED ]] && [[ ! $FNAME ]]; then
+   echo "Not reading from a file, ignoring speed."
+   SPEED=
+fi
+
+tshark_source() {
+   # one or none
+   [[ $FNAME ]] && echo "-r" "$FNAME"
+   [[ $IFACE ]] && echo "-i" "$IFACE"
+}
+
+py_params() {
+   [[ $SPEED ]] && echo "--speed" "$SPEED"
+   [[ $KEEP ]] && echo "--preserve"
+}
+
+# start tshark in background (512 bytes because of DNS queries)
+set -m
+source "${APP_PATH}fields.conf"
+tshark -l -n -Q -s 512 $FIELDS $(tshark_source) > "$PIPE" 2> /dev/null &
+TSHARK=$!
+# run app
+python3 "${APP_PATH}wireowl.py" $(py_params) "$PIPE"
+# when killed via signal, recover terminal from ncurses
+[[ $? -ne 0 ]] && reset
+
+kill $TSHARK 2> /dev/null
+rm "$PIPE" 2> /dev/null
+set +m
