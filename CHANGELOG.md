@@ -2,6 +2,17 @@
 
 Changes to this project are documented in this file.
 
+## [0.4.3] - 2022-07-29
+
+### Added
+
+- dark/light theme
+
+### Fixed
+
+- content scrolling
+
+
 ## [0.4.2] - 2022-07-24
 
 ### Fixed
