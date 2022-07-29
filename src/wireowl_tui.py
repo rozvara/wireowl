@@ -5,10 +5,8 @@
 # Copyright 2021, 2022 Jiri Rozvaril <rozvara at vync dot org>
 
 # TODOs
-# - scroll bug -> scroll+neth > ui.rows ('L' at the end)
 # - fix/clear todos
 # - more sort options
-# - light theme
 # - persistent settings
 # - kiosk mode
 
@@ -17,15 +15,15 @@ import time
 from datetime import date
 from wireowl_common import rel_time, fmt_time
 
-VERSION="0.4.2"
+VERSION="0.4.3"
 
 # UI CONST
 HIGHLIGHTTIME = -5  # seconds to highlight active communication (negative value, as to the past)
 
 # colors
-NORMAL, TOPBAR, TABHIGH, TABDIM, DOMAIN, LOCALNETWORK, \
-CONNECTOR, ACTIVEDOMAIN, ACTIVEIP, ALERTDOMAIN, CLIENTMARK, \
-ACTIVEDEVICE, ACTIVERX, ACTIVETX, MENUKEY, MENUTITLE = range(16)
+_, NORMAL, TOPBAR, TABHIGH, TABDIM, GLOBALDOMAIN, LOCALNETWORK, \
+ACTIVEIP, ACTIVEDEVICE, ACTIVERX, ACTIVETX, \
+CONNECTOR, ALERTDOMAIN, CLIENTMARK, MENUKEY, MENUTITLE = range(16)
 
 # some layout constants
 RP, GR = range(2)
@@ -64,6 +62,7 @@ class UI():
         self.show_cnames = False    # show/hide CNAME records for domains
         self.sec_graph = True       # show graph in seconds(T) or minutes(F)
         self.abs_time = True        # absolute(T) or relative time(F)
+        self.dark_theme = True      # dark(T) or light theme(F)
 
         self.is_kiosk = False       # kiosk mode w/ auto switch to new client
 
@@ -123,6 +122,43 @@ def run_ui(worker_thread, reader_thread, kiosk_mode=False, exp_time=None):
     curses.wrapper(main_app_loop)
 
 
+# set colors
+#
+def set_curses_colors():
+    if ui.dark_theme:
+        curses.init_pair(NORMAL, curses.COLOR_WHITE, curses.COLOR_BLACK)
+        curses.init_pair(TOPBAR, curses.COLOR_GREEN, curses.COLOR_BLACK)
+        curses.init_pair(TABHIGH, curses.COLOR_WHITE, curses.COLOR_GREEN)
+        curses.init_pair(TABDIM, curses.COLOR_BLACK, curses.COLOR_GREEN)
+        curses.init_pair(LOCALNETWORK, curses.COLOR_CYAN, curses.COLOR_BLACK)
+        curses.init_pair(CONNECTOR, curses.COLOR_BLUE, curses.COLOR_BLACK)
+        curses.init_pair(GLOBALDOMAIN, curses.COLOR_GREEN, curses.COLOR_BLACK)
+        curses.init_pair(ACTIVEIP, curses.COLOR_CYAN, curses.COLOR_BLACK)
+        curses.init_pair(ALERTDOMAIN, curses.COLOR_RED, curses.COLOR_BLACK)
+        curses.init_pair(ACTIVEDEVICE, curses.COLOR_CYAN, curses.COLOR_BLACK)
+        curses.init_pair(CLIENTMARK, curses.COLOR_GREEN, curses.COLOR_BLACK)
+        curses.init_pair(ACTIVERX, curses.COLOR_BLUE, curses.COLOR_BLACK)
+        curses.init_pair(ACTIVETX, curses.COLOR_RED, curses.COLOR_BLACK)
+        curses.init_pair(MENUKEY, curses.COLOR_WHITE, curses.COLOR_BLACK)
+        curses.init_pair(MENUTITLE, curses.COLOR_BLACK, curses.COLOR_CYAN)
+    else:
+        curses.init_pair(NORMAL, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        curses.init_pair(TOPBAR, curses.COLOR_GREEN, curses.COLOR_WHITE)
+        curses.init_pair(TABHIGH, curses.COLOR_WHITE, curses.COLOR_GREEN)
+        curses.init_pair(TABDIM, curses.COLOR_BLACK, curses.COLOR_GREEN)
+        curses.init_pair(LOCALNETWORK, curses.COLOR_BLUE, curses.COLOR_WHITE)
+        curses.init_pair(CONNECTOR, curses.COLOR_BLUE, curses.COLOR_WHITE)
+        curses.init_pair(GLOBALDOMAIN, curses.COLOR_GREEN, curses.COLOR_WHITE)
+        curses.init_pair(ACTIVEIP, curses.COLOR_BLUE, curses.COLOR_WHITE)
+        curses.init_pair(ALERTDOMAIN, curses.COLOR_RED, curses.COLOR_WHITE)
+        curses.init_pair(ACTIVEDEVICE, curses.COLOR_BLUE, curses.COLOR_WHITE)
+        curses.init_pair(CLIENTMARK, curses.COLOR_GREEN, curses.COLOR_WHITE)
+        curses.init_pair(ACTIVERX, curses.COLOR_BLUE, curses.COLOR_WHITE)
+        curses.init_pair(ACTIVETX, curses.COLOR_RED, curses.COLOR_WHITE)
+        curses.init_pair(MENUKEY, curses.COLOR_BLACK, curses.COLOR_WHITE)
+        curses.init_pair(MENUTITLE, curses.COLOR_BLACK, curses.COLOR_CYAN)
+
+
 # app init + main keypress/refresh loop
 #
 def main_app_loop(stdscr):
@@ -141,23 +177,7 @@ def main_app_loop(stdscr):
     curses.curs_set(0)
     curses.mousemask(MOUSEMASK)  # curses.ALL_MOUSE_EVENTS for no mask
     ui.scr.keypad(True)
-
-    curses.init_pair(TOPBAR, curses.COLOR_GREEN, curses.COLOR_BLACK)
-    curses.init_pair(TABHIGH, curses.COLOR_WHITE, curses.COLOR_GREEN)
-    curses.init_pair(TABDIM, curses.COLOR_BLACK, curses.COLOR_GREEN)
-    curses.init_pair(DOMAIN, curses.COLOR_GREEN, curses.COLOR_BLACK)
-    curses.init_pair(LOCALNETWORK, curses.COLOR_CYAN, curses.COLOR_BLACK)
-    curses.init_pair(CONNECTOR, curses.COLOR_BLUE, curses.COLOR_BLACK)
-    curses.init_pair(ACTIVEDOMAIN, curses.COLOR_GREEN, curses.COLOR_BLACK)
-    curses.init_pair(ACTIVEIP, curses.COLOR_CYAN, curses.COLOR_BLACK)
-    curses.init_pair(ALERTDOMAIN, curses.COLOR_RED, curses.COLOR_BLACK)
-    curses.init_pair(ACTIVEDEVICE, curses.COLOR_CYAN, curses.COLOR_BLACK)
-    curses.init_pair(CLIENTMARK, curses.COLOR_GREEN, curses.COLOR_BLACK)
-    curses.init_pair(ACTIVERX, curses.COLOR_BLUE, curses.COLOR_BLACK)
-    curses.init_pair(ACTIVETX, curses.COLOR_RED, curses.COLOR_BLACK)
-    curses.init_pair(MENUKEY, curses.COLOR_WHITE, curses.COLOR_BLACK)
-    curses.init_pair(MENUTITLE, curses.COLOR_BLACK, curses.COLOR_CYAN)
-
+    set_curses_colors()
     ui.scr.clear()
     ui.scr.refresh()
 
@@ -241,14 +261,10 @@ def refresh_data_and_screen():
 #
 def draw_content():
     global ui
-
-    # TODO FIX SCROLLED TERMINAL RESIZE
-    # # fix scroll when changed terminal size during scrolled down
-    # if ui.content and (ui.scroll + ui.neth > ui.rows()):
-    #      ui.scroll = ui.rows() - ui.neth
-
-    # with respect to scroll state, draw content row by row, part by part
-    # no need to redraw as getch() in a main loop refreshes screen
+    # terminal resized?
+    if ui.scroll+ui.neth > len(ui.content):
+        ui.scroll = max(0, len(ui.content)-ui.neth)
+    # draw content row by row, part by part; getch() in main loop refreshes screen
     firstrow = min(ui.scroll, len(ui.content))
     lastrow = min(ui.scroll+ui.neth, len(ui.content))
     for y, row in enumerate(ui.content[firstrow:lastrow]):
@@ -260,7 +276,7 @@ def draw_content():
             draw_graph(ui.reserved_top+y, row[1], row[2], row[3], row[4], row[5])
     # clear rest of the screen
     if lastrow-firstrow < ui.neth:
-        row = [['', curses.color_pair(NORMAL)]]
+        row = [['', NORMAL]]
         for y in range(lastrow-firstrow, ui.neth):
             draw_row_parts(ui.reserved_top+y, row)
 
@@ -445,6 +461,10 @@ def handle_key_press():
 
     elif ui.key == ord('t'):
         ui.abs_time = not ui.abs_time
+
+    elif ui.key == ord('T'):
+        ui.dark_theme = not ui.dark_theme
+        set_curses_colors()
 
     elif ui.key == ord('+'):
         ui.refresh = min(ui.refresh+5, 50)
@@ -926,7 +946,7 @@ def make_detail_content():
             if ip in ip2dns:
                 if ui.conns[ip]['glob']:
                     COLOR, ATTR = \
-                        (ACTIVEDOMAIN, curses.A_BOLD) if is_highlighted else (DOMAIN, NORMAL)
+                        (GLOBALDOMAIN, curses.A_BOLD) if is_highlighted else (GLOBALDOMAIN, NORMAL)
                 else:
                     is_listed = ui.show_local
                     COLOR, ATTR = \
@@ -985,7 +1005,7 @@ def make_detail_content():
 
     if not ui.content:
         ui.content.append([RP, ['', NORMAL]])
-        ui.content.append([RP, [center("No data transmitted over IP", ui.w)]])
+        ui.content.append([RP, [center("No data transmitted over IP", ui.w), NORMAL]])
         ui.content.append([RP, [center("from device "+ui.selected, ui.w)]])
         if not ui.show_local:
             ui.content.append([RP, [center("to internet.", ui.w)]])
@@ -1058,8 +1078,8 @@ def show_help():
     ui.set_layout(0, 0)
     ui.content = []
     ui.content.append([RP,
-        ["wireowl " + VERSION + " - network traffic statistics (c) 2021 Jiri Rozvaril.",
-        LOCALNETWORK, curses.A_BOLD]])
+        ["wireowl " + VERSION + " - network traffic statistics (c) 2021-2022 Jiri Rozvaril.",
+        LOCALNETWORK]])
     ui.content.append([RP,
         ["Released under GNU GPLv2 license. Run with -h for usage info.",
         LOCALNETWORK]])
@@ -1067,72 +1087,75 @@ def show_help():
     ui.content.append([RP])
     colw = 8
     ui.content.append([RP,
-        [" Up/Down, PgUp/PgDn, Home/End:", LOCALNETWORK, curses.A_BOLD],
+        [" Up/Down, PgUp/PgDn, Home/End:", LOCALNETWORK],
         [" scroll in a long list", NORMAL]])
     ui.content.append([RP,
-        [rjust("F3: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("F3: ",colw), LOCALNETWORK],
         ["toggle active communication highlighting", NORMAL]])
     ui.content.append([RP,
-        [rjust("F4: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("F4: ",colw), LOCALNETWORK],
         ["show all devices/clients only", NORMAL]])
     ui.content.append([RP,
-        [rjust("F5: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("F5: ",colw), LOCALNETWORK],
         ["toggle list/detail", NORMAL]])
     ui.content.append([RP,
-        [rjust("F6: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("F6: ",colw), LOCALNETWORK],
         ["toggle sort order by last activity/first appearance", NORMAL]])
     ui.content.append([RP,
-        [rjust("t: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("t: ",colw), LOCALNETWORK],
         ["toggle absolute/relative time", NORMAL]])
     ui.content.append([RP,
-        [rjust("+ -: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("T: ",colw), LOCALNETWORK],
+        ["toggle dark/light theme", NORMAL]])
+    ui.content.append([RP,
+        [rjust("+ -: ",colw), LOCALNETWORK],
         [f"adjust refresh speed (now {ui.refresh/10:,}s)", NORMAL]])
     ui.content.append([RP,
-        [rjust("p: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("p: ",colw), LOCALNETWORK],
         ["pause", NORMAL]])
 
     ui.content.append([RP])
     ui.content.append([RP,
         ["Detail view:", NORMAL]])
     ui.content.append([RP,
-        [" Right/Left, Tab/Shift-Tab:", LOCALNETWORK, curses.A_BOLD],
+        [" Right/Left, Tab/Shift-Tab:", LOCALNETWORK],
         [" select device", NORMAL]])
     ui.content.append([RP,
-        [rjust("s r: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("s r: ",colw), LOCALNETWORK],
         ["show/hide sent/received data graph", NORMAL]])
     ui.content.append([RP,
-        [rjust("g: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("g: ",colw), LOCALNETWORK],
         ["toggle second/minute graphs", NORMAL]])
     ui.content.append([RP,
-        [rjust("i: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("i: ",colw), LOCALNETWORK],
         ["show/hide IP address details", NORMAL]])
     ui.content.append([RP,
-        [rjust("l: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("l: ",colw), LOCALNETWORK],
         ["show/hide local network addresses", NORMAL]])
     # TODO: CNAMES
     # ui.content.append([RP,
-    #     [rjust("c: ",colw), LOCALNETWORK, curses.A_BOLD],
+    #     [rjust("c: ",colw), LOCALNETWORK],
     #     ["show/hide CNAMES next to domain", NORMAL]])
     ui.content.append([RP,
-        [rjust("m b: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("m b: ",colw), LOCALNETWORK],
         ["show/hide device's multicast/blocked querries", NORMAL]])
     ui.content.append([RP,
-        [rjust("F8: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("F8: ",colw), LOCALNETWORK],
         ["clear connections  ", NORMAL],
-        ["Shift+F8: ", LOCALNETWORK, curses.A_BOLD],
+        ["Shift+F8: ", LOCALNETWORK],
         ["clear all", NORMAL]])
 
     ui.content.append([RP])
     ui.content.append([RP,
-        [rjust("F1 h: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("F1 h: ",colw), LOCALNETWORK],
         ["show this help screen", NORMAL]])
     ui.content.append([RP,
-        [rjust("F10 q: ",colw), LOCALNETWORK, curses.A_BOLD],
+        [rjust("F10 q: ",colw), LOCALNETWORK],
         ["quit", NORMAL]])
 
     ui.content.append([RP])
     ui.content.append([RP,
-        ["Press any key to return.", LOCALNETWORK, curses.A_BOLD],
+        ["Press any key to return.", LOCALNETWORK],
         ["", NORMAL]])
 
     scroll = ui.scroll
