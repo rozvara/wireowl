@@ -15,7 +15,7 @@ import time
 from datetime import date
 from wireowl_common import rel_time, fmt_time
 
-VERSION="0.4.3"
+VERSION="0.4.4"
 
 # UI CONST
 HIGHLIGHTTIME = -5  # seconds to highlight active communication (negative value, as to the past)
