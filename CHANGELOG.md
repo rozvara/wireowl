@@ -2,6 +2,14 @@
 
 Changes to this project are documented in this file.
 
+
+## [0.4.4] - 2022-11-21
+
+### Fixed
+
+- updating set of IP addresses
+
+
 ## [0.4.3] - 2022-07-29
 
 ### Added

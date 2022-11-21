@@ -295,7 +295,7 @@ class MacAddrDevice():
         # A/AAAA response (linked to previous SRV target, if any; otherwise normal)
         if pkt[P_DNSA] or pkt[P_DNSAAAA]:
             ips = set(pkt[P_DNSA].split('|') + pkt[P_DNSAAAA].split('|'))
-            ips.remove('')
+            if '' in ips: ips.remove('')
 
             if pkt[P_DNSQRYNAME] in self.srvtargets:
                 qryname = self.srvtargets[pkt[P_DNSQRYNAME]]
